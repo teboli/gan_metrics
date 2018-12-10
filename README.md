@@ -11,6 +11,8 @@ The FCN score code is heavily adapted from the FCN pytorch implementation of wke
 - [pytorch](https://github.com/pytorch/pytorch) >= 0.4.1
 - [torchvision](https://github.com/pytorch/vision) >= 0.2.1
 
+## References
+
 [1] Tim Salimans, Ian Goodfellow, Wojciech Zaremba, Vicki Cheung, Alec
 Radford, and Xi Chen. Improved techniques for training gans. In
 Advances in Neural Information Processing Systems 29, pages 2234–2242.

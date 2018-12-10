@@ -47,10 +47,11 @@ class InceptionScore(nn.Module):
 
 
 class FCNScore(nn.Module):
-    def __init__(self, state_dict=None, batch_size=100, splits=10):
+    def __init__(self, state_dict=None, batch_size=100, splits=10, num_class=21):
         self.model = networks.fcn_8s()
         self.batch_size = batch_size
         self.splits = splits
+        self.num_class = num_class
         if state_dict is not None:
             self.model.load_state_dict(state_dict)
 
@@ -75,9 +76,9 @@ class FCNScore(nn.Module):
             start = i     * n // self.splits
             end   = (i+1) * n // self.splits
             labels_split = labels[start:end]
-            per_pixel_accs.append(losses.per_pixel_acc(labels_split, target).item())
-            per_class_accs.append(losses.class_accs(labels_split, target).item())
-            class_ious.append(losses.class_ious(labels_split, target).item())
+            per_pixel_accs.append(losses.per_pixel_acc(labels_split, self.num_class).item())
+            per_class_accs.append(losses.class_accs(labels_split, target, self.num_class).item())
+            class_ious.append(losses.class_ious(labels_split, target, self.num_class).item())
 
         return np.mean(per_pixel_accs), np.std(per_pixel_accs), \
                 np.mean(class_accs), np.std(class_accs), \

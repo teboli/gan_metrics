@@ -8,7 +8,7 @@ def per_pixel_acc(input, num_classes):
     return output.div(num_classes)
 
 
-def per_class_acc(input, target, threshold, num_classes):
+def per_class_acc(input, target, num_classes):
     output = torch.zeros_like(input)
     for c in range(num_classes):
         input_c  = input.eq(c * torch.zeros_like(input)).float()
