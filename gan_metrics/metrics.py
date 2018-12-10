@@ -47,10 +47,9 @@ class InceptionScore(nn.Module):
 
 
 class FCNScore(nn.Module):
-    def __init__(self, state_dict=None, batch_size=100, splits=10, num_class=21):
+    def __init__(self, state_dict=None, batch_size=100, num_class=21):
         self.model = networks.fcn_8s()
         self.batch_size = batch_size
-        self.splits = splits
         self.num_class = num_class
         if state_dict is not None:
             self.model.load_state_dict(state_dict)
@@ -69,20 +68,7 @@ class FCNScore(nn.Module):
             labels.append(self.model(input_split).softmax(dim=1).argmax(dim=1))
         labels = torch.cat(labels, dim=0)
 
-        per_pixel_accs = []
-        per_class_accs = []f
-        class_ious = []
-        for i in range(self.splits):
-            start = i     * n // self.splits
-            end   = (i+1) * n // self.splits
-            labels_split = labels[start:end]
-            per_pixel_accs.append(losses.per_pixel_acc(labels_split, self.num_class).item())
-            per_class_accs.append(losses.class_accs(labels_split, target, self.num_class).item())
-            class_ious.append(losses.class_ious(labels_split, target, self.num_class).item())
-
-        return np.mean(per_pixel_accs), np.std(per_pixel_accs), \
-                np.mean(class_accs), np.std(class_accs), \
-                np.mean(class_ious), np.std(class_ious)
+        return losses.label_score(labels,target,self.num_classes)
 
 
 if __name__ == '__main__':
@@ -91,6 +77,7 @@ if __name__ == '__main__':
     b = torch.rand(1,3,299,299)
 
     # For a classical RGB image, don't forget to center the data with those means and stds.
+    # std is [1,1,1] for the pretrained version of FCN-8s in FCN-score.
     # normalize = transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
     # a = normalize(a)
     # b = normalize(b)
