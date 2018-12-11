@@ -1,6 +1,10 @@
-import torchVV
+import torch
 from torch import nn
 import torch.nn.functional as F
+
+import numpy as np
+
+import pdb
 
 # https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py
 def get_upsampling_weight(in_channels, out_channels, kernel_size):
@@ -16,12 +20,15 @@ def get_upsampling_weight(in_channels, out_channels, kernel_size):
     weight = np.zeros((in_channels, out_channels, kernel_size, kernel_size),
                       dtype=np.float64)
     weight[range(in_channels), range(out_channels), :, :] = filt
-return torch.from_numpy(weight).float()
+    return torch.from_numpy(weight).float()
 
 
 class fcn_8s(nn.Module):
-    def __init__(self, num_class=21):
+    def __init__(self, num_classes=21):
         super(fcn_8s, self).__init__()
+
+        self.num_classes = num_classes
+
         # conv1
         self.conv1_1 = nn.Conv2d(3, 64, 3, padding=100)
         self.relu1_1 = nn.ReLU(inplace=True)
@@ -73,16 +80,16 @@ class fcn_8s(nn.Module):
         self.relu7 = nn.ReLU(inplace=True)
         self.drop7 = nn.Dropout2d()
 
-        self.score_fr = nn.Conv2d(4096, num_class, 1)
-        self.score_pool3 = nn.Conv2d(256, num_class, 1)
-        self.score_pool4 = nn.Conv2d(512, num_class, 1)
+        self.score_fr = nn.Conv2d(4096, num_classes, 1)
+        self.score_pool3 = nn.Conv2d(256, num_classes, 1)
+        self.score_pool4 = nn.Conv2d(512, num_classes, 1)
 
         self.upscore2 = nn.ConvTranspose2d(
-            n_class, n_class, 4, stride=2, bias=False)
+            num_classes, num_classes, 4, stride=2, bias=False)
         self.upscore8 = nn.ConvTranspose2d(
-            n_class, n_class, 16, stride=8, bias=False)
+            num_classes, num_classes, 16, stride=8, bias=False)
         self.upscore_pool4 = nn.ConvTranspose2d(
-            n_class, n_class, 4, stride=2, bias=False)
+            num_classes, num_classes, 4, stride=2, bias=False)
 
         self._initialize_weights()
 
@@ -154,7 +161,7 @@ class fcn_8s(nn.Module):
         h = self.upscore8(h)
         h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
 
-    return h
+        return h
 
 
 # def copy_params_from_fcn16s(self, fcn16s):
@@ -169,3 +176,9 @@ class fcn_8s(nn.Module):
 #             if l1.bias is not None:
 #                 assert l1.bias.size() == l2.bias.size()
 # l2.bias.data.copy_(l1.bias.data)
+
+if __name__ == "__main__":
+    x = torch.rand(10,3,500,375)
+    fcn = fcn_8s()
+    y = fcn(x)
+    print(y.shape)

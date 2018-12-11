@@ -4,12 +4,14 @@ from torch import nn
 from torchvision import models, transforms
 
 import numpy as np
+import math
 
 import losses, networks
 
+import pdb
 
 class InceptionScore(nn.Module):
-    def __init__(self, state_dict=None, batch_size=100, splits=10):
+    def __init__(self, state_dict=None, batch_size=32, splits=10):
         super(InceptionScore, self).__init__()
         self.batch_size = batch_size
         self.splits = splits
@@ -27,11 +29,12 @@ class InceptionScore(nn.Module):
         n_batches = int(math.ceil(float(n) / float(self.batch_size)))
 
         probs = []
-        for i in range(n_batches):
-            start = i * self.batch_size
-            end   = min(i+1 * self.batch_size, n)
-            input_split = input[start:end]
-            probs.append(self.model(input_split).softmax(dim=1))
+        with torch.no_grad():
+            for i in range(n_batches):
+                start = i * self.batch_size
+                end   = min((i+1) * self.batch_size, n)
+                input_split = input[start:end]
+                probs.append(self.model(input_split).softmax(dim=1))
         probs = torch.cat(probs, dim=0)
 
         scores = []
@@ -39,18 +42,21 @@ class InceptionScore(nn.Module):
             start = i     * n // self.splits
             end   = (i+1) * n // self.splits
             probs_split = probs[start:end]
-            p = p.mean(dim=0,keepdim=True).log()
-            kl = F.kl_div(probs_split, p, reduction='none').sum(dim=1).mean()
+            p = probs_split.mean(dim=0,keepdim=True).log()
+            # kl = F.kl_div(probs_split, p, reduction='none')
+            kl = probs_split*(probs_split.log() - p)
+            kl = kl.sum(dim=1).mean()
             scores.append(kl.exp().item())
 
         return np.mean(scores), np.std(scores)
 
 
 class FCNScore(nn.Module):
-    def __init__(self, state_dict=None, batch_size=100, num_class=21):
+    def __init__(self, state_dict=None, batch_size=10, num_classes=21):
+        super(FCNScore, self).__init__()
         self.model = networks.fcn_8s()
         self.batch_size = batch_size
-        self.num_class = num_class
+        self.num_classes = num_classes
         if state_dict is not None:
             self.model.load_state_dict(state_dict)
 
@@ -61,11 +67,12 @@ class FCNScore(nn.Module):
         n_batches = int(math.ceil(float(n) / float(self.batch_size)))
 
         labels = []
-        for i in range(n_batches):
-            start = i * self.batch_size
-            end   = min(i+1 * self.batch_size, n)
-            input_split = input[start:end]
-            labels.append(self.model(input_split).softmax(dim=1).argmax(dim=1))
+        with torch.no_grad():
+            for i in range(n_batches):
+                start = i * self.batch_size
+                end   = min((i+1) * self.batch_size, n)
+                input_split = input[start:end]
+                labels.append(self.model(input_split).softmax(dim=1).argmax(dim=1))
         labels = torch.cat(labels, dim=0)
 
         return losses.label_score(labels,target,self.num_classes)
@@ -73,17 +80,18 @@ class FCNScore(nn.Module):
 
 if __name__ == '__main__':
     # Toy example
-    a = torch.rand(1,3,299,299)
-    b = torch.rand(1,3,299,299)
+    a = torch.rand(100,3,299,299)
+    b = torch.rand(100,3,500,375)
+    c = torch.randint(low=0,high=21,size=(100,500,375))
 
     # For a classical RGB image, don't forget to center the data with those means and stds.
-    # std is [1,1,1] for the pretrained version of FCN-8s in FCN-score.
-    # normalize = transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-    # a = normalize(a)
-    # b = normalize(b)
+    # Please use these mean and std values for pretrained Inception Score and FCN Score.
+    # !!! Normalize works for 3*H*W images !!!
+    # a = transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])(a)
+    # b = transforms.Normalize(mean=[0.485,0.456,0.406], std=[1.,1.,1.])(b)
 
     fcn_criterion = FCNScore()
     inception_criterion  = InceptionScore()
 
-    perceptual_loss = fcn_criterion(a,b)
-    inception_score = inception_criterion(a,b)
+    print(inception_criterion(a))
+    print(fcn_criterion(b,c))

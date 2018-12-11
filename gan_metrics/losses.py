@@ -14,8 +14,8 @@ def label_score(input, target, num_classes):
     input  = input.cpu().numpy()
     target = target.cpu().numpy()
     hist = np.zeros((num_classes, num_classes))
-    for lt, lp in zip(label_trues, label_preds):
-        hist += _fast_hist(lt.flatten(), lp.flatten(), n_class)
+    for lp, lt in zip(input, target):
+        hist += _fast_hist(lp.flatten(), lt.flatten(), num_classes)
     per_pixel_acc = np.diag(hist).sum() / hist.sum()
     with np.errstate(divide='ignore', invalid='ignore'):
         acc_cls = np.diag(hist) / hist.sum(axis=1)
@@ -26,3 +26,11 @@ def label_score(input, target, num_classes):
         )
     iou_acc = np.nanmean(iu)
     return per_pixel_acc, per_class_acc, iou_acc
+
+
+if __name__ == "__main__":
+    input  = torch.randint(low=0,high=21,size=(10,500,375))
+    target = torch.randint(low=0,high=21,size=(10,500,375))
+    num_classes = 21
+
+    print(label_score(input, target, num_classes))
